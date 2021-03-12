@@ -17,19 +17,19 @@ const msName = "control-mitsubishi-plc-w-kube"
 func main() {
 	errCh := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
-	cfg,err := config.New()
+	cfg, err := config.New()
 	if err != nil {
 		errCh <- err
 	}
 	defer cancel()
-	s := pkg.New(ctx,cfg)
+	s := pkg.New(ctx, cfg)
 	go s.Start(errCh)
-	kc,err := msclient.NewKanbanClient(ctx)
+	kc, err := msclient.NewKanbanClient(ctx)
 	if err != nil {
 		errCh <- err
 		return
 	}
-	kw,err := kc.GetKanbanCh(msName,kc.GetProcessNumber())
+	kw, err := kc.GetKanbanCh(msName, kc.GetProcessNumber())
 	if err != nil {
 		errCh <- err
 		return
@@ -41,14 +41,14 @@ loop:
 		select {
 		case data := <-kw:
 			if data != nil {
-				res,_ := data.GetMetadataByMap()
-				cmd.WriteCombPlc(ctx,cfg.Server.Addr,cfg.Server.Port,res)
+				res, _ := data.GetMetadataByMap()
+				cmd.WriteCombPlc(ctx, cfg.Server.Addr, cfg.Server.Port, res)
 			}
-		case err := <- errCh:
-			log.Printf("err = %v",err)
+		case err := <-errCh:
+			log.Printf("err = %v", err)
 			break loop
 		case <-quitC:
-			if err := s.Shutdown(ctx);err != nil {
+			if err := s.Shutdown(ctx); err != nil {
 				errCh <- err
 			}
 		}

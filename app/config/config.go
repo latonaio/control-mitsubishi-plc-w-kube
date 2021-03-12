@@ -1,16 +1,16 @@
 package config
 
 import (
-"github.com/kelseyhightower/envconfig"
+	"github.com/kelseyhightower/envconfig"
 )
 
 type Config struct {
-	Server Server
+	Server  Server
 	IsDebug bool
 }
 
 type Server struct {
-	Addr string `envconfig:"ADDRESS"`
+	Addr             string `envconfig:"ADDRESS"`
 	Port             string `envconfig:"PORT"`
 	ShutdownWaitTime int    `envconfig:"SHUTDOWN_WAIT_TIME"`
 }

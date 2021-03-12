@@ -3,10 +3,21 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"control-mitsubishi-plc-w-kube/lib"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"sync"
+)
+
+const (
+	REQUEST_SUBHEADER          = "5000"
+	HOST_STATION_NO            = "00"
+	NETWORK_NO_TO_HOST_STATION = "00"
+	PC_NO_TO_HOST_STATION      = "FF"
+	TARGET_IO_UNIT_NO          = "FF03"
+	BULK_WRITE_CMD             = "1401"
+	SUB_CMD                    = "0000"
+	WATCH_TIMER                = "1000"
 )
 
 type NisPlcMakerSetting struct {
@@ -21,9 +32,7 @@ var rcvBufferPool = &sync.Pool{
 	},
 }
 
-func WriteCombPlc(ctx context.Context, targetAddress, targetPort string,data map[string]interface{}) <-chan error {
-	iStartDevNo := math.MaxInt32
-	iEndDevNo := math.MinInt32
+func WriteCombPlc(ctx context.Context, targetAddress, targetPort string, data map[string]interface{}) <-chan error {
 	errCh := make(chan error, 1)
 	pClient := &PlcClient{}
 	client, err := pClient.NewClient(targetAddress, targetPort)
@@ -37,12 +46,24 @@ func WriteCombPlc(ctx context.Context, targetAddress, targetPort string,data map
 		lock.Lock()
 		defer lock.Unlock()
 		initReceiveStream()
-		tx := CreateSendHeader(iStartDevNo, iEndDevNo-iStartDevNo)
+		var statusHex string
+		//録音開始
+		if data["status"] == 0 {
+			statusHex = "0100" //録音開始のデバイスnoを1に、録音停止のデバイスnoを0に
+			//録音終了
+		} else if data["status"] == 1 {
+			statusHex = "0001" //録音開始のデバイスnoを0に、録音停止のデバイスnoを1に
+		}
+
+		// 録音開始/停止のデバイスnoは8600からの並びなので、始点は8600で固定
+		// 録音開始と録音停止のデバイスnoを書き換えるので書き込むデータ長は2で固定
+		tx := CreateSendHeader(8600, 2)
+		tx = tx + statusHex
 		data, err := hex.DecodeString(tx)
 		if err != nil {
 			errCh <- err
 		}
-		_,err = client.Write(data)
+		_, err = client.Write(data)
 		if err != nil {
 			errCh <- err
 		}
@@ -55,39 +76,22 @@ func initReceiveStream() {
 	rcvBuf.Reset()
 }
 
-
 func CreateSendHeader(startDevNum int, writeLen int) string {
-	// subheader
-	subHeader := "5000"
-	//ネットワーク番号
-	netNum := fmt.Sprintf("%X", 0)
-	//PC番号
-	pcNum := fmt.Sprintf("%X", 0xFF)
-	//要求先ユニットI/O番号
-	io := fmt.Sprintf("%X", 0x3FF)
-	//要求先ユニット局番号
-	unit := fmt.Sprintf("%X", 0)
-	//要求データ長
-	dataLen := fmt.Sprintf("%X", 12)
-	//CPU監視タイマ
-	cpuTimer := fmt.Sprintf("%X", 0x1)
-	//コマンド
-	cmd := fmt.Sprintf("%X", 0x1401)
-	//サブコマンド
-	subCmd := fmt.Sprintf("%X", 0x00)
-	//要求データ部
-	startDev := fmt.Sprintf("%X", startDevNum)
-	wLen := fmt.Sprintf("%X", writeLen)
+	s := lib.GetBytesFrom32bitWithLE(int64(startDevNum))
+	s[3] = byte(0xA8)
+	startDev := fmt.Sprintf("%X", s)
+	wLen := fmt.Sprintf("%X", lib.GetBytesFrom8bitWithLE(int64(writeLen))[0:2])
+	dataLen := fmt.Sprintf("%X", len(WATCH_TIMER+BULK_WRITE_CMD+SUB_CMD+startDev+wLen))
 
-	return subHeader +
-		netNum +
-		pcNum +
-		io +
-		unit +
-		dataLen +
-		cpuTimer +
-		cmd +
-		subCmd +
+	return REQUEST_SUBHEADER +
+		NETWORK_NO_TO_HOST_STATION +
+		PC_NO_TO_HOST_STATION +
+		TARGET_IO_UNIT_NO +
+		HOST_STATION_NO +
+		dataLen + //固定
+		WATCH_TIMER + //固定
+		BULK_WRITE_CMD +
+		SUB_CMD +
 		startDev +
 		wLen
 }
