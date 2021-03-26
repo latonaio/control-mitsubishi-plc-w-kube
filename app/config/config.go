@@ -7,6 +7,7 @@ import (
 type Config struct {
 	Server  Server
 	IsDebug bool
+	YamlPath string `envconfig:"YAML_PATH"`
 }
 
 type Server struct {
