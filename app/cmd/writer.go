@@ -3,9 +3,16 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"control-mitsubishi-plc-w-kube/config"
 	"control-mitsubishi-plc-w-kube/lib"
 	"encoding/hex"
 	"fmt"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"os"
+	"regexp"
+	"strconv"
 	"sync"
 )
 
@@ -20,10 +27,16 @@ const (
 	WATCH_TIMER                = "1000"
 )
 
+type NisPlcMakerSettings struct {
+	Settings []*NisPlcMakerSetting `yaml:"settings"`
+}
+
 type NisPlcMakerSetting struct {
-	Content      string
-	DataSize     int    // データサイズ(word単位)
-	DeviceNumber string // デバイス番号
+	Content      string `yaml:"strContent"`
+	DataSize     int    `yaml:"iDataSize"`
+	DeviceNumber string `yaml:"strDevNo"`
+	IO           int    `yaml:"iReadWrite"`
+	FlowNumber   int    `yaml:"iFlowNo"`
 }
 
 var rcvBufferPool = &sync.Pool{
@@ -32,42 +45,84 @@ var rcvBufferPool = &sync.Pool{
 	},
 }
 
-func WriteCombPlc(ctx context.Context, targetAddress, targetPort string, data map[string]interface{}) <-chan error {
+//一文字目がアルファベット、二文字目以降が数値という組み合わせ以外であればエラーを返す
+func GetDevNo(strDevNo string) (iDevNo int, err error) {
+	iDevNo = 0
+	m, _ := regexp.MatchString(`^[a-fA-F\\b]+$`, strDevNo[0:1])
+	if !m {
+		return 0, errors.New("デバイス番号エラー")
+	}
+	devNo, err := strconv.Atoi(strDevNo[1:])
+	if err != nil {
+		return 0, errors.New("デバイス番号エラー")
+	}
+
+	return devNo, nil
+}
+
+
+func LoadPlcSettings(cfg *config.Config) (*NisPlcMakerSettings, error) {
+	f, err := os.Open(cfg.YamlPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	settings := &NisPlcMakerSettings{}
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(b, settings); err != nil {
+		return nil, err
+	}
+
+	return settings, nil
+}
+
+
+func WriteCombPlc(ctx context.Context, cfg *config.Config, data map[string]interface{}) <-chan error {
 	errCh := make(chan error, 1)
+
+	pcs, err := LoadPlcSettings(cfg)
+	if err != nil {
+		errCh <- err
+	}
 	pClient := &PlcClient{}
-	client, err := pClient.NewClient(targetAddress, targetPort)
+	client, err := pClient.NewClient(cfg.Server.Addr, cfg.Server.Port)
 	if err != nil {
 		errCh <- err
 	}
 
-	// 同時に一回までの書き込みしか許容しない
-	var lock sync.Mutex
-	go func() {
-		lock.Lock()
-		defer lock.Unlock()
-		initReceiveStream()
-		var statusHex string
-		//録音開始
-		if data["status"] == 0 {
-			statusHex = "0100" //録音開始のデバイスnoを1に、録音停止のデバイスnoを0に
-			//録音終了
-		} else if data["status"] == 1 {
-			statusHex = "0001" //録音開始のデバイスnoを0に、録音停止のデバイスnoを1に
-		}
+	for _,v := range pcs.Settings {
+		// 同時に一回までの書き込みしか許容しない
+		var lock sync.Mutex
+		go func(v *NisPlcMakerSetting) {
+			lock.Lock()
+			defer lock.Unlock()
+			initReceiveStream()
+			var statusHex string
+			//録音開始
+			if data["status"] == 0 {
+				statusHex = "0100" //録音開始のデバイスnoを1に、録音停止のデバイスnoを0に
+				//録音終了
+			} else if data["status"] == 1 {
+				statusHex = "0001" //録音開始のデバイスnoを0に、録音停止のデバイスnoを1に
+			}
 
-		// 録音開始/停止のデバイスnoは8600からの並びなので、始点は8600で固定
-		// 録音開始と録音停止のデバイスnoを書き換えるので書き込むデータ長は2で固定
-		tx := CreateSendHeader(8600, 2)
-		tx = tx + statusHex
-		data, err := hex.DecodeString(tx)
-		if err != nil {
-			errCh <- err
-		}
-		_, err = client.Write(data)
-		if err != nil {
-			errCh <- err
-		}
-	}()
+			devNo,err := GetDevNo(v.DeviceNumber)
+			tx := CreateSendHeader(devNo, v.DataSize)
+			tx = tx + statusHex
+			data, err := hex.DecodeString(tx)
+			if err != nil {
+				errCh <- err
+			}
+			_, err = client.Write(data)
+			if err != nil {
+				errCh <- err
+			}
+		}(v)
+	}
+
 	return errCh
 }
 

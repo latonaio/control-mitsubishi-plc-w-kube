@@ -42,7 +42,7 @@ loop:
 		case data := <-kw:
 			if data != nil {
 				res, _ := data.GetMetadataByMap()
-				cmd.WriteCombPlc(ctx, cfg.Server.Addr, cfg.Server.Port, res)
+				cmd.WriteCombPlc(ctx, cfg, res)
 			}
 		case err := <-errCh:
 			log.Printf("err = %v", err)
