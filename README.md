@@ -10,12 +10,12 @@ control-mitsubishi-plc-w-kubeは、kanbanから取得したデータを元に、
 
 
 ## 動作環境
-動作には以下の環境であることを前提とします。
-* OS: Linux
-* CPU: Intel64/AMD64/ARM64
-最低限スペック
-* CPU: 2 core
-* memory: 4 GB
+動作には以下の環境であることを前提とします。   
+* OS: Linux   
+* CPU: Intel64/AMD64/ARM64   
+最低限スペック   
+* CPU: 2 core   
+* memory: 4 GB   
 
 ### 対応している接続方式
 * Ethernet接続
@@ -41,7 +41,7 @@ PLCへの書き込みの仕様は下記の通りです。
 * 自局番号：00（固定）
 
 ### デバイス番号
-書き込むデバイスのデバイス番号はyamlファイルで設定が可能です。
+書き込むデバイスのデバイス番号はyamlファイルで設定が可能です。   
 yamlファイルは`/var/lib/aion/default/config/`へ設置してください。
 
 ### yamlファイルの書き方
@@ -77,5 +77,5 @@ mv nis_settings.yaml.sample nis_settings.yaml
 cp nis_settings.yaml /var/lib/aion/default/config/nis_setting.yaml
 ```
 
-## 6.関連するマイクロサービス
+## 関連するマイクロサービス
 * [control-mitsubishi-plc-r-kube](https://github.com/latonaio/control-mitsubishi-plc-r-kube)
