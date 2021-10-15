@@ -82,4 +82,4 @@ cp nis_settings.yaml /var/lib/aion/default/config/nis_setting.yaml
 ```
 
 ## 6.関連するマイクロサービス
-control-mitsubishi-plc-w-kube
+control-mitsubishi-plc-r-kube
