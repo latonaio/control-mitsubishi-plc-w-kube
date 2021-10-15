@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:experimental
 # Build Container
-FROM golang:1.13.5 as builder
+FROM golang:1.17.2 as builder
 
 ENV GO111MODULE on
 ENV GOPRIVATE "bitbucket.org/latonaio"
