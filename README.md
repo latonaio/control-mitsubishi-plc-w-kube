@@ -1,27 +1,25 @@
 # control-mitsubishi-plc-w-kube
-kanban（AION/RabbitMQのアーキテクチャによるメッセージ）から取得したデータを元に、三菱電機製のPLCのレジスタにメッセージを送信するマイクロサービスです。
+kanban（AION/RabbitMQのアーキテクチャによるメッセージ）から取得したデータを元に、三菱電機製のPLCのレジスタにメッセージを送信するマイクロサービスです。  
+メッセージの送受信方法およびフォーマットはMCプロトコルに準じています。  
 
-メッセージの送受信方法およびフォーマットはMCプロトコルに準じています。
-
-## MCプロトコル
-三菱電機製レジスタに採用されている、三菱電機独自のプロトコルです。
-
+## MCプロトコル  
+三菱電機製レジスタに採用されている、三菱電機独自のプロトコルです。  
 16進数のバイナリで構成された電文を送受信し、レジスタに対して操作を行うメッセージングプロトコルです。
 
 
 [MCプロトコルのマニュアル（三菱電機のHPに遷移します）](https://www.mitsubishielectric.co.jp/fa/download/search.do?mode=keymanual&q=sh080003)
 
 
-## 1.動作環境
+## 動作環境
 
 * OS: Linux
 * CPU: ARM/AMD/Intel  
 
-## 2.対応している接続方式
+## 対応している接続方式
 * Ethernet接続
 
 
-## 3.IO
+## I/O
 
 ### Input
 kanban(RabbitMQ)からデータを受信します。  
@@ -33,7 +31,7 @@ status: IO(IN: 0, OUT: 1)
 ### Output
 kanban(RabbitMQ)のデータを元に、PLCへデータの書き込みを行います
 
-## 4.PLCへの書き込み
+## PLCへの書き込み
 ### 電文フォーマット仕様
 書き込みの仕様は下記の通りです。
 
@@ -81,5 +79,5 @@ mv nis_settings.yaml.sample nis_settings.yaml
 cp nis_settings.yaml /var/lib/aion/default/config/nis_setting.yaml
 ```
 
-## 5.関連するマイクロサービス
-control-mitsubishi-plc-r-kube
+## 関連するマイクロサービス
+・[control-mitsubishi-plc-r-kube](https://github.com/latonaio/control-mitsubishi-plc-r-kube)  
